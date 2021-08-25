@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 use std::ops;
-use std::cmp;
 
 mod f64_utils;
 use f64_utils::F64Utils;
@@ -69,7 +68,8 @@ impl Polynomial {
     fn solve_first_degree(&self) -> String {
         println!("Solving first-degree polynomial");
         let (_, b, c) = self.get_square_coefs();
-        (-c / b).to_string()
+        let res = -c / b;
+        res.positivize_zero().to_string()
     }
 
     fn solve_second_degree(&self) -> String {
@@ -86,9 +86,9 @@ impl Polynomial {
     fn solve_second_degree_neg_d(&self, d: f64) -> String {
         println!("Negative discriminant. Finding complex roots...");
         let (a, b, _) = self.get_square_coefs();
-        let x1: (f64, f64) = ((-b / 2. / a), ((-d).ft_sqrt() / 2. / a));
-        let x2: (f64, f64) = ((-b / 2. / a), ((-d).ft_sqrt() / 2. / a));
-        format!("{}+i{},{}+i{}", x1.0, x1.1, x2.0, x2.1)
+        let x1: (f64, f64) = ((-b / 2. / a).positivize_zero(), ((-d).ft_sqrt() / 2. / a).positivize_zero());
+        let x2: (f64, f64) = ((-b / 2. / a).positivize_zero(), ((-d).ft_sqrt() / 2. / a).positivize_zero());
+        format!("{}+{}i,{}-{}i", x1.0, x1.1, x2.0, x2.1)
     }
 
     fn solve_second_degree_pos_d(&self, d: f64) -> String {
@@ -103,7 +103,7 @@ impl Polynomial {
         println!("Zero discriminant. Finding real roots...");
         let (a, b, _) = self.get_square_coefs();
         let x: f64 = -b / 2. / a;
-        x.to_string() + "," + x.to_string().as_str()
+        x.positivize_zero().to_string() + "," + x.positivize_zero().to_string().as_str()
     }
 }
 
@@ -156,17 +156,11 @@ fn parse_f64(s: &str) -> (f64, usize) {
 }
 
 fn parse_term(term: &str) -> Result<Polynomial, String> {
-    // print!("Term: {} ", term);
     let mut poly = Polynomial { degrees: HashMap::new() };
     if term.is_empty() { return Ok(poly); }
-    if term.starts_with("*") { return Err("Bad pattern of term".to_owned() + term); }
+    if term.starts_with("*") || !term.ends_with(|c: char| c.is_numeric() || c == 'X') { return Err("Bad pattern of term: ".to_owned() + term); }
 
     let (coef, parsed) = parse_f64(term);
-    // let coef = term.chars()
-    //     .take_while(|c| c.is_numeric())
-    //     .collect::<String>()
-    //     .parse::<f64>()
-    //     .unwrap_or(1.);
 
     let mut remain = term.chars().skip(parsed).collect::<String>();
     if remain.starts_with("*") { remain.remove(0); }
@@ -175,12 +169,10 @@ fn parse_term(term: &str) -> Result<Polynomial, String> {
         "X" => poly.degrees.insert(1, coef),
         _ => poly.degrees.insert(parse_degree(&remain)?, coef),
     };
-    // println!("Poly: {:?} ", poly);
     Ok(poly)
 }
 
 fn parse_equation(eq: &str) -> Result<Polynomial, String> {
-    // println!("Equation: {}", eq);
     if eq.is_empty() { return Err("Empty equation found".to_owned()); }
     let eq: String = String::from("+") + eq;
     let parse_term_cls = |term: &str| parse_term(term
@@ -195,15 +187,12 @@ fn parse_equation(eq: &str) -> Result<Polynomial, String> {
     for term in eq.split("-").map(parse_term_cls) {
         neg_term_res += term?;
     }
-    // println!("Pos terms: {:?}", pos_term_res);
-    // println!("Neg terms: {:?}", neg_term_res);
     Ok(pos_term_res - neg_term_res)
 }
 
 pub fn parse_polynomial(input: &String) -> Result<Polynomial, String> {
     let input = input.remove_whitespaces().remove_redundant_operators();
     let equations: Vec<&str> = input.split("=").collect();
-    // println!("{:?}", equations);
     match equations.len() {
         1 => Err("Symbol '=' not found".to_owned()),
         2 => Ok(parse_equation(equations[0])?
