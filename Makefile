@@ -19,3 +19,7 @@ clean:
 
 .PHONY: re
 re: clean all
+
+.PHONY: test
+test:
+	cargo test
